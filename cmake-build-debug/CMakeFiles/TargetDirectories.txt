@@ -1,0 +1,3 @@
+/home/abdu/Scrivania/S.O/elaborato S.O/cmake-build-debug/CMakeFiles/elaborato_S_O.dir
+/home/abdu/Scrivania/S.O/elaborato S.O/cmake-build-debug/CMakeFiles/edit_cache.dir
+/home/abdu/Scrivania/S.O/elaborato S.O/cmake-build-debug/CMakeFiles/rebuild_cache.dir
