@@ -2,12 +2,18 @@
 #include <stddef.h>
 #include "semaphore.h"
 #include "../inc/errExit.h"
-
+#include <errno.h>
 void semOp (int semid, unsigned short sem_num, short sem_op) {
     struct sembuf sop = {.sem_num = sem_num, .sem_op = sem_op, .sem_flg = 0};
 
-    if (semop(semid, &sop, 1) == -1)
-        errExit("semop failed");
+
+//    if (semop(semid, &sop, 1) == -1)
+//        errExit("semop failed");
+    int ret;
+    do {
+        ret =semop(semid, &sop, 1) ;
+    } while (ret == -1 && errno == EINTR);
+
 
 
 }

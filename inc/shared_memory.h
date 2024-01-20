@@ -22,6 +22,10 @@ struct PlayersInfo{
     char token2;
     int colonna_ultima_mossa;
     int player_counter;
+    int pid_client1;
+    int pid_client2;
+    int pid_server;
+    int vincitore; //-1 (pareggio), 1 (vince client 1), 2(vince client 2)
 };
 
 

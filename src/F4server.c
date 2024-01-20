@@ -9,16 +9,19 @@
 #include <sys/shm.h>
 #include <sys/sem.h>
 
+#include <sys/msg.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <stdbool.h>
 #include "string.h"
+#include <signal.h>
 
 #include "../inc/shared_memory.h"
 #include "../inc/semaphore.h"
 #include "../inc/errExit.h"
+#include "../inc/coda_messaggi.h"
 
 #define attendi_client1 0 //serviranno per capire al server, quando arrivano i client
 #define attendi_client2 1
@@ -26,24 +29,89 @@
 #define just_play_client2 3
 #define sblocca_server 4 //serviranno per sincronizzare i client con il server
 #define controlla_partita_server 5
+#define attend_pid_client1 6 //mi servira per sincronizzare la coda di messaggi (non ho ancora capito se avro bisgono)
+#define attend_pid_client2 7
+#define attend_pid_server 8
 
 
+/*
+    VARIABILI GLOBALI
+*/
 //rendo variabili globali per necessita nella fase implementativa
 int rows = 5, columns = 5;
 char token_client1 = 'x', token_client2 = 'o';
+// the message queue identifier
+int msqid = -1;
+
+
+/*
+    VARIABILI GLOBALI (quelle vere)
+*/
+
+int semid;
+int shmidServer;
+struct SharedData  *sharedData;
+int shmidForPlayers;
+struct PlayersInfo  *playersInfo;
+
+int contatoreCtrlC = 0; //contatore Ctl+c
+int secondiCtrlC = 5;
+
+
+/*
+    SIG. HANDLERS
+*/
+void handlerSegnali(int sig){
+
+    if(sig == SIGINT){
+        printf("entror nel sigINIT\n");
+        contatoreCtrlC++;
+
+        if(contatoreCtrlC == 2){
+            printf("entro nel contatore\n");
+            alarm(0);
+            printf("<server> Gioco interrotto dal CTRL+C\n");
+
+            //elimino i semafori creati
+            printf("<Server> removing semafori...\n");
+            elimina_semafori(semid);
+
+            // remove the shared memory segment
+            printf("<Server> removing & detaching the shared memory segment...\n");
+            rimuovi_e_libera_spazio(sharedData, shmidServer);
+            //rimuovo lo spazio anche per playersInfo
+            rimuovi_e_libera_spazio(playersInfo,shmidForPlayers);
+            exit(0);
+        }
+        alarm(secondiCtrlC);
+    }
+    if(sig == SIGALRM){
+        printf("entro qui SIGALRM\n");
+        alarm(0);
+        if(contatoreCtrlC != 0){
+            contatoreCtrlC = 0;
+            secondiCtrlC = 5;
+            printf("<server> Resettato contatore CTRL+C\n");
+        }
+
+    }
+
+
+
+}
 
 
 
 
 int create_sem_set(key_t semkey) {
     // Create a semaphore set with 2 semaphores
-    int semid = semget(semkey, 6, IPC_CREAT | S_IRUSR | S_IWUSR);
+    int semid = semget(semkey, 9, IPC_CREAT | S_IRUSR | S_IWUSR);
     if (semid == -1)
        errExit("semget failed");
 
     // Initialize the semaphore set
     union semun arg;
-    unsigned short values[] = {0, 0, 0, 0, 0, 0};
+    unsigned short values[] = {0, 0, 0, 0, 0, 0, 0, 0,0};
     arg.array = values;
 
     if (semctl(semid, 0, SETALL, arg) == -1)
@@ -58,8 +126,6 @@ int  controlla_se_qualcuno_ha_vinto(char (*gameBoard)[columns], int colonna_ulti
     /* mio muovero solo nella colonna del ultima mossa, e la riga dove si e'
      * poggiato il gettone con l'ultima mossa
      * */
-
-
 
     //cerco la riga del ultima mossa
     int riga_ultima_mossa = -1;
@@ -101,7 +167,7 @@ int  controlla_se_qualcuno_ha_vinto(char (*gameBoard)[columns], int colonna_ulti
     //controllo sulla riga se qualcuno ha vinto
     printf("riga ultima mossa: %i\n colonna ultima mossa: %i\n",riga_ultima_mossa,colonna_ultima_mossa);
     for (int i = 0; i < columns; ++i) {
-        printf("gameBoard[riga_ultima_mossa-1][i] = %c\n", gameBoard[riga_ultima_mossa][i]);
+       // printf("gameBoard[riga_ultima_mossa-1][i] = %c\n", gameBoard[riga_ultima_mossa][i]);
         if(gameBoard[riga_ultima_mossa][i] == token_client1){
             F4_ct_client1++;
             F4_ct_client2 = 0;
@@ -141,6 +207,10 @@ int  controlla_se_qualcuno_ha_vinto(char (*gameBoard)[columns], int colonna_ulti
 
 int main() {
 
+
+
+
+
     //chiave della memoria condivisa
     //key_t shmKey = 123;
     key_t shmKey = ftok(".", 'm');
@@ -163,10 +233,10 @@ int main() {
     // la size che andro ad allocare
     // allocate a shared memory segment
     printf("<Server> allocating a shared memory segment...\n");
-    int shmidServer = alloc_shared_memory(shmKey, sizeof(rows*columns));
+    shmidServer = alloc_shared_memory(shmKey, sizeof(rows*columns));
     // attach the shared memory segment
     printf("<Server> attaching the shared memory segment...\n");
-    struct SharedData  *sharedData  = (struct SharedData *)get_shared_memory(shmidServer, 0);
+     sharedData  = (struct SharedData *)get_shared_memory(shmidServer, 0);
     sharedData->rows = rows;
     sharedData->columns = columns;
     //creo il campo di gioco
@@ -178,7 +248,7 @@ int main() {
 
     // create a semaphore set
     printf("<Server> creating a semaphore set...\n");
-    int semid = create_sem_set(semkey);
+    semid = create_sem_set(semkey);
 
 
     //struct playersInfo <attendiamo il palyer_counter venga modificato>
@@ -189,8 +259,8 @@ int main() {
         errExit("ftok failed");
 
    // printf("semekeyplayers: %i\n", semkeyPlayers);
-    int shmidForPlayers = alloc_shared_memory(semkeyPlayers , sizeof(struct PlayersInfo));
-    struct PlayersInfo  *playersInfo = (struct PlayersInfo*)get_shared_memory(shmidForPlayers, 0);
+     shmidForPlayers = alloc_shared_memory(semkeyPlayers , sizeof(struct PlayersInfo));
+   playersInfo = (struct PlayersInfo*)get_shared_memory(shmidForPlayers, 0);
 
     //riempio le informazioni giusto per testare
     playersInfo->player_counter = 0;
@@ -199,7 +269,9 @@ int main() {
     playersInfo->token1 = token_client1;
     playersInfo->token2 = token_client2;
     playersInfo->colonna_ultima_mossa = 1;
+    playersInfo->pid_server = getpid();//metto il pid del server;
 
+    //metto spazi vuoti nella matrice
     for (int i = 0; i < rows; ++i) {
         for (int j = 0; j < columns; ++j) {
             if(j%2==0) {
@@ -210,6 +282,38 @@ int main() {
         }
     }
 
+    /*===================inzio gestione segnali==========================*/
+    /*
+     Set di segnali per il server
+ */
+    sigset_t setSegnali;
+    sigfillset(&setSegnali);
+
+    sigdelset(&setSegnali, SIGUSR1);
+    sigdelset(&setSegnali, SIGHUP);//segnael della chiusura del terminale
+    sigdelset(&setSegnali, SIGUSR2);
+    sigdelset(&setSegnali, SIGINT);
+    sigdelset(&setSegnali, SIGALRM);
+
+    sigprocmask(SIG_SETMASK, &setSegnali, NULL);
+    if(signal(SIGUSR1, handlerSegnali) == SIG_ERR || signal(SIGINT, handlerSegnali) == SIG_ERR || signal(SIGALRM, handlerSegnali) == SIG_ERR || signal(SIGUSR2, handlerSegnali) == SIG_ERR || signal(SIGHUP, handlerSegnali) == SIG_ERR){
+        printf("<server> Errore nel settare l'handler segnali. \n");
+        return 0;
+    }
+
+   /*===================fine gestione segnali==========================*/
+
+
+
+
+
+   // printf("Sending the message for client 2 ...\n");
+    //mSize = sizeof(struct IvariPid) - sizeof(long);
+
+
+//    if (msgsnd(msqid, &pid_di_tutti, mSize, 0) == -1)
+//        errExit("msgsnd failed");
+
     /* cominciamo il game */
     //provo a muovermi nella sincronizzazione per 5 volte
     printf("e' tutto pronto, attendo i client...\n");
@@ -219,9 +323,74 @@ int main() {
     semOp(semid, attendi_client2, -1);
     printf("e' arrivato il client 2 : cha ha nome %s\n",playersInfo->client2);
     semOp(semid, attendi_client1, 1);//sblocco il client 1
+
+    //prima di cominciare i vari giochi mi salvo i vari pid dei client
+
+
+
+    //comincia la creazione di una coda di messaggi
+//    int msgKey= ftok(".", 'q'); //(q - for queue)
+//    if ( msgKey == -1)
+//        errExit(" msgKey ftok failed");
+//
+//    printf("<Server> Making MSG queue...\n");
+//    // get the message queue, or create a new one if it does not exist
+//    msqid = msgget(  msgKey, IPC_CREAT | S_IRUSR | S_IWUSR);
+//    if (msqid == -1)
+//        errExit("msgget failed");
+//
+//    //create a struct del messaggio da inviare
+//    struct IvariPid pid_di_tutti;
+//
+//
+//    pid_di_tutti.mtype = 1;
+//    pid_di_tutti.pid_server = getpid();
+//    printf("Sending the message for client 1...\n");
+//    size_t mSize = sizeof(struct IvariPid) - sizeof(long);
+//    if (msgsnd(msqid, &pid_di_tutti, mSize, 0) == -1)
+//        errExit("msgsnd failed");
+   // semOp(semid, attend_pid_server, 1);
+   // semOp(semid, attend_pid_client1, -1);
+
+//    if (msgrcv(msqid, &pid_di_tutti, mSize, 0, 0) == -1)
+//        errExit("msgget failed");
+
+//    printf("in quanto server ho pid: %i, salvato nella struct ho %i\n", getpid(), pid_di_tutti.pid_server);
+//    printf("il pid del client1 e' %i", pid_di_tutti.pid_client1);
+//
+
+
+
+
+
+
+
+
+    //stampo i vari pid per vedere le corrispondeze
+
+
+
+   printf("in quanto server ho pid: %i, salvato nella struct ho %i\n", getpid(), playersInfo->pid_server);
+    printf("server, ha pid %i\n", playersInfo->pid_server);
+    printf("client 1, ha pid %i\n",  playersInfo->pid_client1);
+    printf("client 2, ha pid %i\n",  playersInfo->pid_client2);
+
+    int pid_client1 =  playersInfo->pid_client1;
+    int pid_client2 = playersInfo->pid_client2;
+
+
+
+
+
+
+
+
+
     printf("\n===========COMINCIAMO!===========\n");
 
-    for (int i = 0; i < 5; ++i) {
+    for (int i = 0; i < 40; ++i) {
+
+        printf("mi blocco, affiche un client giochi\n");
         semOp(semid, sblocca_server, -1); //blocco il server, attendo che un client giochi
         //conterra -1(nessuno ha vinto), 1(vince client1), 2(vince client2), 3(vince client3)
         int valore_vincitore =  controlla_se_qualcuno_ha_vinto(gameBoard, playersInfo->colonna_ultima_mossa);
@@ -240,8 +409,9 @@ int main() {
         }
 
 
-
-        semOp(semid, controlla_partita_server, -1);//sblocco i client che ha fatto l'utima
+        printf("dico al client ho finito il controllo\n");
+        semOp(semid, controlla_partita_server, 1);//sblocco i client che ha fatto l'utima mossa
+        printf("dopo la conferma al client\n");
     }
 
 
@@ -280,7 +450,11 @@ int main() {
 //    printf("player info counter: %d\n", playersInfo->player_counter);
 
 
-
+/*
+ *
+ * * * * * * * * * * faccio puliza * * * * * * * * * * *
+ *
+ * */
     //elimino i semafori creati
     printf("<Server> removing semafori...\n");
     elimina_semafori(semid);
