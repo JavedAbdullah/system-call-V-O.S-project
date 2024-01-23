@@ -1,6 +1,7 @@
 #ifndef _SHARED_MEMORY_HH
 #define _SHARED_MEMORY_HH
 
+#include <stdbool.h>
 #include <stdlib.h>
 
 // the Request structure defines a request sent by a client
@@ -25,7 +26,8 @@ struct PlayersInfo{
     int pid_client1;
     int pid_client2;
     int pid_server;
-    int vincitore; //-1 (pareggio), 1 (vince client 1), 2(vince client 2)
+    int vincitore; //3 (pareggio), 1 (vince client 1), 2(vince client 2) 0(server chiude tutto)
+    bool abbandono;
 };
 
 

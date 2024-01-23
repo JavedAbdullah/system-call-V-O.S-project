@@ -38,8 +38,8 @@
     VARIABILI GLOBALI
 */
 //rendo variabili globali per necessita nella fase implementativa
-int rows = 5, columns = 5;
-char token_client1 = 'x', token_client2 = 'o';
+int rows, columns;
+char token_client1 = ' ', token_client2 = ' ';
 // the message queue identifier
 int msqid = -1;
 
@@ -58,12 +58,41 @@ int contatoreCtrlC = 0; //contatore Ctl+c
 int secondiCtrlC = 5;
 
 
+
+/*funziona che fa puliza*/
+
+void elimina_tutto(){
+    //elimino i semafori creati
+    printf("<Server> removing semafori...\n");
+    elimina_semafori(semid);
+
+    // remove the shared memory segment
+    printf("<Server> removing & detaching the shared memory segment...\n");
+    rimuovi_e_libera_spazio(sharedData, shmidServer);
+    //rimuovo lo spazio anche per playersInfo
+    rimuovi_e_libera_spazio(playersInfo,shmidForPlayers);
+}
+
+
 /*
     SIG. HANDLERS
 */
 void handlerSegnali(int sig){
 
-    if(sig == SIGINT){
+    // Chiusura terminale
+    if(sig == SIGHUP){
+        printf("<server> terminale server chiuso\n"); //capo questo non verra stampato
+        //comunico ai client che chiudo tutto
+        playersInfo->vincitore = 0; // indica che non ce' un vincitore, e' il server a chiudere tutto
+        kill(playersInfo->pid_client1, SIGUSR1);
+        kill(playersInfo->pid_client2, SIGUSR2);
+
+        elimina_tutto();
+        exit(0);
+    }
+
+
+   else if(sig == SIGINT){
         printf("entror nel sigINIT\n");
         contatoreCtrlC++;
 
@@ -71,21 +100,17 @@ void handlerSegnali(int sig){
             printf("entro nel contatore\n");
             alarm(0);
             printf("<server> Gioco interrotto dal CTRL+C\n");
+            //comunico ai client che chiudo tutto
+            playersInfo->vincitore = 0; // indica che non ce' un vincitore, e' il server a chiudere tutto
+            kill(playersInfo->pid_client1, SIGUSR1);
+            kill(playersInfo->pid_client2, SIGUSR2);
 
-            //elimino i semafori creati
-            printf("<Server> removing semafori...\n");
-            elimina_semafori(semid);
-
-            // remove the shared memory segment
-            printf("<Server> removing & detaching the shared memory segment...\n");
-            rimuovi_e_libera_spazio(sharedData, shmidServer);
-            //rimuovo lo spazio anche per playersInfo
-            rimuovi_e_libera_spazio(playersInfo,shmidForPlayers);
+            elimina_tutto();
             exit(0);
         }
         alarm(secondiCtrlC);
     }
-    if(sig == SIGALRM){
+    else if(sig == SIGALRM){
         printf("entro qui SIGALRM\n");
         alarm(0);
         if(contatoreCtrlC != 0){
@@ -96,6 +121,23 @@ void handlerSegnali(int sig){
 
     }
 
+
+   else  if(sig == SIGUSR1){
+        printf("<server> oh no, client 1 abbandona \n");
+        playersInfo->abbandono = true;
+        kill(playersInfo->pid_client2, SIGUSR2);
+        playersInfo->vincitore = 2;
+        elimina_tutto();
+        exit(0);
+    }
+    else if(sig == SIGUSR2){
+        printf("<server> oh no, client 2 abbandona \n");
+        playersInfo->abbandono = true;
+        kill(playersInfo->pid_client1, SIGUSR1);
+        playersInfo->vincitore = 1;
+        elimina_tutto();
+        exit(0);
+    }
 
 
 }
@@ -127,24 +169,13 @@ int  controlla_se_qualcuno_ha_vinto(char (*gameBoard)[columns], int colonna_ulti
      * poggiato il gettone con l'ultima mossa
      * */
 
-    //cerco la riga del ultima mossa
-    int riga_ultima_mossa = -1;
-    for (int i = 0; i<rows; i++) {
-        if(gameBoard[i][colonna_ultima_mossa-1] == ' '){
-            riga_ultima_mossa = i+1;
-        }
-    }
-    //se con l'uttima mossa ho riempito la colonna
-    if(riga_ultima_mossa == -1){
-        riga_ultima_mossa = rows;
-    }
-
 
 
     //cerco F4 nella colonna
     int F4_ct_client1 = 0; //contatore per client1
     int F4_ct_client2 = 0; //contatore per client2
     for (int i = rows-1; i>= 0; --i) {
+        printf("sto controllando la poszione %i nella colonna %i \n", i, colonna_ultima_mossa-1);
         if(gameBoard[i][colonna_ultima_mossa-1] == token_client1){
             F4_ct_client1++;
             F4_ct_client2 = 0;
@@ -165,23 +196,41 @@ int  controlla_se_qualcuno_ha_vinto(char (*gameBoard)[columns], int colonna_ulti
 
 
     //controllo sulla riga se qualcuno ha vinto
-    printf("riga ultima mossa: %i\n colonna ultima mossa: %i\n",riga_ultima_mossa,colonna_ultima_mossa);
-    for (int i = 0; i < columns; ++i) {
-       // printf("gameBoard[riga_ultima_mossa-1][i] = %c\n", gameBoard[riga_ultima_mossa][i]);
-        if(gameBoard[riga_ultima_mossa][i] == token_client1){
-            F4_ct_client1++;
-            F4_ct_client2 = 0;
-        }else if(gameBoard[riga_ultima_mossa][i] == token_client2){
-            F4_ct_client1 = 0;
-            F4_ct_client2++;
+    printf("controllo sulle righe: \n");
+    for (int i = 0; i < rows; ++i) {
+        for (int j = 0; j < columns; ++j) {
+            printf("%c ",gameBoard[i][j]);
+            if(gameBoard[i][j] == token_client1){
+                F4_ct_client1++;
+                F4_ct_client2 = 0;
+            }else if(gameBoard[i][j] == token_client2){
+                F4_ct_client1 = 0;
+                F4_ct_client2++;
+            }
+            //controllo preventivo  x x x x o (per si che funzioni in questo caso)
+            if(F4_ct_client1>=4){
+                return 1;
+            }else if(F4_ct_client2>=4){
+                return 2;
+            }
+
+
         }
+        printf("\n");
+
+        //forse questo controllo e' inutile
+        if(F4_ct_client1>=4){
+            return 1;
+        }else if(F4_ct_client2>=4){
+            return 2;
+        } else{
+            F4_ct_client1 = 0;
+            F4_ct_client2 = 0;
+        }
+
     }
 
-    if(F4_ct_client1>=4){
-        return 1;
-    }else if(F4_ct_client2>=4){
-        return 2;
-    }
+
 
     //se nessuno ha ancora vinto, cerco per il pareggio
 
@@ -205,10 +254,24 @@ int  controlla_se_qualcuno_ha_vinto(char (*gameBoard)[columns], int colonna_ulti
     return -1;
 }
 
-int main() {
+int main(int argc, char *argv[]) {
 
+    if(argc != 5){
+        printf("Usage: %s \n", argv[0]);
+        printf("eseguire il programma in questo modo:\n ./<eseguibile> <righe> <colonne> <gettone 1> <gettone 2>\n");
+        return 1;
+    }
+    rows = atoi(argv[1]);
+    columns = atoi(argv[2]);
 
-
+    if(rows< 5 || columns< 5){
+        printf("le righe e colonne DEVONO essere >=5\n");
+        return 1;
+    }
+   // strcpy(token_client1, argv[3]);
+    token_client1 = argv[3][0];
+    printf("token 1 %c: \n", token_client1);
+   token_client2 = argv[4][0];
 
 
     //chiave della memoria condivisa
@@ -397,12 +460,31 @@ int main() {
         if(valore_vincitore == 1){
             printf("vince client 1, bravo!!\n");
             //chiudo i client
+            //kill(pid_client1, SIGINT);
+            //kill(pid_client2, SIGINT);
+            playersInfo->vincitore = 1;
+            kill(pid_client1, SIGUSR1);
+            kill(pid_client2, SIGUSR2);
+            break;
+
         }else if(valore_vincitore == 2){
             printf("vince client 2, bravo!!\n");
             //chiudo i client
+            //kill(pid_client1, SIGINT);
+            //kill(pid_client2, SIGINT);
+            playersInfo->vincitore = 2;
+            kill(pid_client1, SIGUSR1);
+            kill(pid_client2, SIGUSR2);
+            break;
         }else if(valore_vincitore == 3){
             printf("PAREGGIO, BRAVI ENTRAMBI\n");
             //CHIUDO IL GIOCO
+            //kill(pid_client1, SIGINT);
+            //kill(pid_client2, SIGINT);
+            playersInfo->vincitore = 3;
+            kill(pid_client1, SIGUSR1);
+            kill(pid_client2, SIGUSR2);
+            break;
         }else if(valore_vincitore == -1){
             printf("nessuno ha vinto, CONTINUATE!\n");
             //CONTINUO IL GIOCO

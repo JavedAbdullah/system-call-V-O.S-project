@@ -38,14 +38,111 @@ int rows = 5, columns = 5; // queste informazioni verranno prese dalla memoria c
 // the message queue identifier
 int msqid = -1;
 
-
-
+/*
+    VARIABILI GLOBALI (quelle vere)
+*/
+int semid;
+int shmidServer;
+struct SharedData  *sharedData;
+int shmidForPlayers;
+struct PlayersInfo  *playersInfo;
+int whoiam;
+int secondi_per_mossa = 10;//setto i secondi necessari affinche un client perdi
 
 /*
     SIG. HANDLERS
 */
 void handlerSegnali(int sig){
+    // Chiusura terminale
+    if(sig == SIGHUP){
+        printf("<client> hai abbandonato!\n sconfitta a tavolino!\n"); //no stampa
 
+        if(whoiam == 1){
+            kill(playersInfo->pid_server, SIGUSR1);
+        }else if(whoiam == 2){
+            kill(playersInfo->pid_server, SIGUSR2);
+        }
+
+        exit(0);
+    }
+
+    if(sig == SIGINT){
+        printf("<client> hai abbandonato!\n sconfitta a tavolino!\n");
+
+        if(whoiam == 1){
+            kill(playersInfo->pid_server, SIGUSR1);
+        }else if(whoiam == 2){
+            kill(playersInfo->pid_server, SIGUSR2);
+        }
+
+        exit(0);
+    }
+
+    if(sig == SIGUSR2){
+        //faccio in controllo se sono il vincitore
+        if(playersInfo->vincitore == 2 && playersInfo->abbandono == true){
+            //client 2, vincitore
+            printf("hai vinto per abbandono \n");
+            exit(0);
+        }
+        if(playersInfo->vincitore == 2 ){
+            //client 2, vincitore
+            printf("hai vinto!! \n");
+            exit(0);
+        }
+
+        if(playersInfo->vincitore == 0){
+            printf("\nIL SERVER SUPREMO HA CHIUSO TUTTO!\n");
+            exit(0);
+        }
+        if(playersInfo->vincitore == 1){
+            printf("\nHAI PERSO!!\n");
+            exit(0);
+        }
+
+        if(playersInfo->vincitore == 3){
+            printf("\nPAREGGIO!!\n");
+            exit(0);
+        }
+    }
+
+    if(sig == SIGUSR1){
+        //faccio in controllo se sono il vincitore
+        if(playersInfo->vincitore == 1 && playersInfo->abbandono == true){
+            //client 2, vincitore
+            printf("hai vinto per abbandono \n");
+            exit(0);
+        }
+
+        if(playersInfo->vincitore == 1){
+            //client 2, vincitore
+            printf("hai vinto!!\n");
+            exit(0);
+        }
+        if(playersInfo->vincitore == 0){
+            printf("\nIL SERVER SUPREMO HA CHIUSO TUTTO!\n");
+            exit(0);
+        }
+
+        if(playersInfo->vincitore == 2){
+            printf("\nHAI PERSO!!\n");
+            exit(0);
+        }
+        if(playersInfo->vincitore == 3){
+            printf("\nPAREGGIO!!\n");
+            exit(0);
+        }
+    }
+
+    //il tempo per mossa e' scaduto;
+    if(sig == SIGALRM){
+        if(whoiam == 1){
+            //sono il client 1
+            kill(playersInfo->pid_client1, SIGINT);
+        }else if(whoiam == 2){
+            kill(playersInfo->pid_client2, SIGINT);
+        }
+    }
 
 }
 
@@ -53,8 +150,8 @@ void handlerSegnali(int sig){
 
 //stampa campo da gioco:
 void stampa_campo_da_gioco(char (*gameBoard)[columns]){
-
-    printf("~ sciegli la colonna: ~\n");
+    system("clear");
+    printf("~ sciegli la colonna: ~ \n");
     for (int i = 0; i < rows; ++i) {
         printf(" ~  ");
     }
@@ -81,11 +178,14 @@ void stampa_campo_da_gioco(char (*gameBoard)[columns]){
 void inserisci_token(char (*gameBoard)[columns], char token_inserito){
     int mossa_cliente;
     //printf("io dovrei essere una scanf\n");
-    scanf("%d",&mossa_cliente);//devo fare il controllo che quello che inserisco sia giusto
+    scanf("%d",&mossa_cliente);
+    //TO-DO: devo fare il controllo che quello che inserisco sia giusto
     bool inserito = false;
     while(1){
+
+        //alarm(secondi_per_mossa); //imposto l'allarme
         for (int i = rows-1; i>= 0; --i) {
-            printf("entro nel for:\n");
+            //printf("entro nel for:\n");
             if(gameBoard[i][mossa_cliente-1] == ' '){
                 inserito = true;
                 gameBoard[i][mossa_cliente-1] = token_inserito;
@@ -95,9 +195,16 @@ void inserisci_token(char (*gameBoard)[columns], char token_inserito){
         }
 
         if(!inserito){
-            printf("inserimento fallito, sciegliere un'altra colonna!\n");
-            scanf("%d",&mossa_cliente);//devo fare il controllo che quello che inserisco sia giusto
+
+            printf("inserimento fallito, sciegliere un'altra colonna!\n ==>");
+            printf("\n hai %i sec. per la mossa, altrimenti perdi per abbandono\n", secondi_per_mossa);
+            alarm(0);//risetto l'allarme
+            alarm(secondi_per_mossa);//risetto il timer
+            scanf("%d",&mossa_cliente);
+            //TO-DO: devo fare il controllo che quello che inserisco sia giusto
         }else{
+            //alarm(0);//risetto l'allarme
+            playersInfo->colonna_ultima_mossa = mossa_cliente;
             break;
         }
     }
@@ -112,7 +219,7 @@ void inserisci_token(char (*gameBoard)[columns], char token_inserito){
 
 int create_sem_set(key_t semkey) {
     // Create a semaphore set with ? semaphores
-    int semid = semget(semkey, 9, IPC_CREAT | S_IRUSR | S_IWUSR);
+     semid = semget(semkey, 9, IPC_CREAT | S_IRUSR | S_IWUSR);
     if (semid == -1)
         errExit("semget failed");
 
@@ -127,7 +234,7 @@ int create_sem_set(key_t semkey) {
     return semid;
 }
 
-int main() {
+int main(int argc, char *argv[]) {
 
     //chiave della memoria condivisa
     //key_t shmKey = 123;
@@ -166,15 +273,15 @@ int main() {
     // la size che andro ad allocare
     // allocate a shared memory segment
     printf("<client> allocating a shared memory segment...\n");
-    int shmidServer = alloc_shared_memory(shmKey, sizeof(rows*columns));
+     shmidServer = alloc_shared_memory(shmKey, sizeof(rows*columns));
 
     // attach the shared memory segment
     printf("<client> attaching the shared memory segment...\n");
-    struct SharedData  *sharedData  = (struct SharedData *)get_shared_memory(shmidServer, 0);
+    sharedData  = (struct SharedData *)get_shared_memory(shmidServer, 0);
 
     // create a semaphore set
     printf("<client> creating a semaphore set...\n");
-    int semid = create_sem_set(semkey);
+     semid = create_sem_set(semkey);
 
 
     rows = sharedData->rows;
@@ -189,8 +296,8 @@ int main() {
     key_t semkeyPlayers = ftok(".", 'c');
     if (semkeyPlayers == -1)
         errExit("ftok failed");
-    int shmidForPlayers = alloc_shared_memory(semkeyPlayers , sizeof(struct PlayersInfo));
-    struct PlayersInfo  *playersInfo = (struct PlayersInfo*)get_shared_memory(shmidForPlayers, 0);
+    shmidForPlayers = alloc_shared_memory(semkeyPlayers , sizeof(struct PlayersInfo));
+    playersInfo = (struct PlayersInfo*)get_shared_memory(shmidForPlayers, 0);
 
     bool im_client1 = false;
     bool im_client2 = false; //mi serviranni per determinare che giocatore sono
@@ -203,6 +310,7 @@ int main() {
     playersInfo->player_counter++;
     printf("playersInfo->player_counter: %i\n", playersInfo->player_counter);
     if(im_client1){
+        whoiam = 1;
         playersInfo->pid_client1 = getpid();
         printf("in quanto client 1, ho pid %i\n",  getpid());
         //saro dentro client 1, faccio andare avanti il server
@@ -213,6 +321,7 @@ int main() {
     }
 
     if(im_client2){
+        whoiam = 2;
         playersInfo->pid_client2 = getpid();
         printf("in quanto client 2, ho pid %i\n",  getpid());
         //saro dentro client 2, faccio andare avabti il server
@@ -299,7 +408,7 @@ int main() {
     }
     printf("\n===========Cominciamo=============\n");
 
-    for (int i = 0; i < 20; ++i) { //lo faccio girare solo per 5 volte, ma dovrebbe essere while(true)
+    for (int i = 0; i < 20; ++i) { //lo faccio girare solo per 20 volte, ma dovrebbe essere while(true)
         if(im_client2){
             printf("in quanto client 2, mi blocco\n");
                 semOp(semid, just_play_client2, -1);//mi blocco affinche client 1 possa fare la sua mossa
@@ -308,12 +417,14 @@ int main() {
         //stampo il campo di gioco
         stampa_campo_da_gioco(gameBoard);
         printf("il tuo TOKEN: ~ %c ~ \n",my_token);
-        printf("~ scegli una colonna  ~ \n");
-
-
-        inserisci_token(gameBoard,my_token);
+        printf("~ scegli una colonna  ~ \n ==>");
 
         //move
+        printf("\n hai %i sec. per la mossa, altrimenti perdi per abbandono\n", secondi_per_mossa);
+        alarm(secondi_per_mossa);
+        inserisci_token(gameBoard,my_token);
+        alarm(0);//risetto l'allarme
+
         printf("prima del blocco del server\n");
         //prima di continuare, comunico al server che ho fatto la mossa
         semOp(semid, sblocca_server, 1);//sbolocco il server, affinche possa fare i controlli
