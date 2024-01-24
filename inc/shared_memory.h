@@ -28,6 +28,7 @@ struct PlayersInfo{
     int pid_server;
     int vincitore; //3 (pareggio), 1 (vince client 1), 2(vince client 2) 0(server chiude tutto)
     bool abbandono;
+    bool bot; //mi dira' se il giocatore 1 ha scelto di giocare con un bot
 };
 
 

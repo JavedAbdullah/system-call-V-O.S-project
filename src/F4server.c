@@ -385,6 +385,30 @@ int main(int argc, char *argv[]) {
     semOp(semid, attendi_client1, -1);
     printf("e' arrivato il client 1 : cha ha nome %s\n",playersInfo->client1);
     //manda un segnale al client 1
+    if(playersInfo->bot == true){
+        //il client 1 vuole giocare con il bot, che coraggioso!
+        pid_t pid = fork();
+
+        if (pid == -1){
+            printf("bot  not created!");
+            elimina_tutto();
+            return 1;
+        }else if(pid == 0){
+            /* sono nel figlio
+             * faccio un exec del client e termino
+             *
+             * */
+
+            execl("F4Client","F4Client", "BOT", (char *) NULL);
+            printf("execl ha fallito\n");
+            elimina_tutto();
+            return 1;
+
+        }
+
+
+    }
+
     semOp(semid, attendi_client2, -1);
     printf("e' arrivato il client 2 : cha ha nome %s\n",playersInfo->client2);
     semOp(semid, attendi_client1, 1);//sblocco il client 1

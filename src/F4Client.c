@@ -17,6 +17,7 @@
 #include <sys/msg.h>
 #include <signal.h>
 #include <string.h>
+#include <time.h>
 #include "../inc/shared_memory.h"
 #include "../inc/semaphore.h"
 #include "../inc/errExit.h"
@@ -48,7 +49,8 @@ struct SharedData  *sharedData;
 int shmidForPlayers;
 struct PlayersInfo  *playersInfo;
 int whoiam;
-int secondi_per_mossa = 10;//setto i secondi necessari affinche un client perdi
+bool iambot = false;
+int secondi_per_mossa = 20;//setto i secondi necessari affinche un client perdi
 
 /*
     SIG. HANDLERS
@@ -179,12 +181,21 @@ void stampa_campo_da_gioco(char (*gameBoard)[columns]){
 void inserisci_token(char (*gameBoard)[columns], char token_inserito){
     int mossa_cliente;
     //printf("io dovrei essere una scanf\n");
-    fflush(stdin);
-    scanf("%d",&mossa_cliente);
+    if(iambot == true){
+        mossa_cliente = rand()%columns+1;
+    }else{
+        fflush(stdin);
+        scanf("%d",&mossa_cliente);
+    }
+
     while(mossa_cliente>columns){
         printf("guarda non ho cosi tante colonne per te\n inserisci uno colonna non piu grande di %i", columns);
-        scanf("%d",&mossa_cliente);
-
+        if(iambot == true){
+            mossa_cliente = rand()%columns+1;
+        }else{
+            fflush(stdin);
+            scanf("%d",&mossa_cliente);
+        }
     }
 
     //TO-DO: devo fare il controllo che quello che inserisco sia giusto
@@ -211,12 +222,20 @@ void inserisci_token(char (*gameBoard)[columns], char token_inserito){
             alarm(secondi_per_mossa);//risetto il timer
             fflush(stdout);//pulisco il buffer (?)
             fflush(stdin);
-            scanf("%d",&mossa_cliente);
-            while(mossa_cliente>columns){
-                printf("guarda non ho cosi tante colonne per te\n inserisci uno colonna non piu grande di %i", columns);
-                scanf("%d",&mossa_cliente);
 
+            if(iambot == true){
+                mossa_cliente = rand()%columns+1;
+            }else{
+                scanf("%d",&mossa_cliente);
+                while(mossa_cliente>columns){
+                    printf("guarda non ho cosi tante colonne per te\n inserisci uno colonna non piu grande di %i", columns);
+                    scanf("%d",&mossa_cliente);
+
+                }
             }
+
+
+
            // scanf("%d",&mossa_cliente);
             //TO-DO: devo fare il controllo che quello che inserisco sia giusto
         }else{
@@ -252,16 +271,14 @@ int create_sem_set(key_t semkey) {
 }
 
 int main(int argc, char *argv[]) {
+    srand(time(NULL));
 
     if(argc <2 || argc > 3){
         printf("Usage: %s \n", argv[0]);
         printf("eseguire il programma in questo modo: ./<eseguibile> <nome giocatore>\n oppure per giocare con un bot: ./<eseguibile> <nome giocatore> bot\n");
         return 1;
     }
-    if(argc == 3){
-        printf("client vuole giocare con il bot... \n funzione al momento non prevista...\n");
-        return 1;
-    }
+
 
 
     //chiave della memoria condivisa
@@ -327,6 +344,20 @@ int main(int argc, char *argv[]) {
     shmidForPlayers = alloc_shared_memory(semkeyPlayers , sizeof(struct PlayersInfo));
     playersInfo = (struct PlayersInfo*)get_shared_memory(shmidForPlayers, 0);
 
+    if(argc == 3){
+        if(!strcmp("bot", argv[2])){
+            printf("client vuole giocare con il bot... \n caricamento del bot in corso...\n");
+            playersInfo->bot = true;
+
+        }else{
+            printf("Usage: %s \n", argv[0]);
+            printf("eseguire il programma in questo modo: ./<eseguibile> <nome giocatore>\n oppure per giocare con un bot: ./<eseguibile> <nome giocatore> bot\n");
+            return 1;
+        }
+
+    }
+
+
     bool im_client1 = false;
     bool im_client2 = false; //mi serviranni per determinare che giocatore sono
 
@@ -350,6 +381,9 @@ int main(int argc, char *argv[]) {
     }
 
     if(im_client2){
+        if(playersInfo->bot == true){
+            iambot = true;
+        }
         whoiam = 2;
         strcpy(playersInfo->client2, argv[1]);
         playersInfo->pid_client2 = getpid();
@@ -434,7 +468,7 @@ int main(int argc, char *argv[]) {
     columns = sharedData->columns;
 
     char my_token;
-    char my_name; //li mettero il suo nome scelto
+    //char my_name; //li mettero il suo nome scelto
     if(im_client2){
         my_token = playersInfo->token2;
     }else{

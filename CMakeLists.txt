@@ -3,4 +3,5 @@ project(elaborato_S_O C)
 
 set(CMAKE_C_STANDARD 11)
 
-add_executable(elaborato_S_O src/main.c)
+add_executable(elaborato_S_O src/main.c
+        src/F4server.c)

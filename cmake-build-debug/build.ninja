@@ -55,6 +55,12 @@ build CMakeFiles/elaborato_S_O.dir/src/main.c.o: C_COMPILER__elaborato_S_O_unsca
   OBJECT_DIR = CMakeFiles/elaborato_S_O.dir
   OBJECT_FILE_DIR = CMakeFiles/elaborato_S_O.dir/src
 
+build CMakeFiles/elaborato_S_O.dir/src/F4server.c.o: C_COMPILER__elaborato_S_O_unscanned_Debug /home/abdu/Scrivania/S.O/elaborato$ S.O/src/F4server.c || cmake_object_order_depends_target_elaborato_S_O
+  DEP_FILE = CMakeFiles/elaborato_S_O.dir/src/F4server.c.o.d
+  FLAGS = -g -std=gnu11 -fdiagnostics-color=always
+  OBJECT_DIR = CMakeFiles/elaborato_S_O.dir
+  OBJECT_FILE_DIR = CMakeFiles/elaborato_S_O.dir/src
+
 
 # =============================================================================
 # Link build statements for EXECUTABLE target elaborato_S_O
@@ -63,7 +69,7 @@ build CMakeFiles/elaborato_S_O.dir/src/main.c.o: C_COMPILER__elaborato_S_O_unsca
 #############################################
 # Link the executable elaborato_S_O
 
-build elaborato_S_O: C_EXECUTABLE_LINKER__elaborato_S_O_Debug CMakeFiles/elaborato_S_O.dir/src/main.c.o
+build elaborato_S_O: C_EXECUTABLE_LINKER__elaborato_S_O_Debug CMakeFiles/elaborato_S_O.dir/src/main.c.o CMakeFiles/elaborato_S_O.dir/src/F4server.c.o
   FLAGS = -g
   OBJECT_DIR = CMakeFiles/elaborato_S_O.dir
   POST_BUILD = :
