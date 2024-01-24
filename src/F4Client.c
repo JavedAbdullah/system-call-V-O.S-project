@@ -16,6 +16,7 @@
 #include <fcntl.h>
 #include <sys/msg.h>
 #include <signal.h>
+#include <string.h>
 #include "../inc/shared_memory.h"
 #include "../inc/semaphore.h"
 #include "../inc/errExit.h"
@@ -33,7 +34,7 @@
 
 
 //rendo variabili globali per necessita nella fase implementativa
-int rows = 5, columns = 5; // queste informazioni verranno prese dalla memoria condivisa
+int rows, columns; // queste informazioni verranno prese dalla memoria condivisa
 
 // the message queue identifier
 int msqid = -1;
@@ -152,7 +153,7 @@ void handlerSegnali(int sig){
 void stampa_campo_da_gioco(char (*gameBoard)[columns]){
     system("clear");
     printf("~ sciegli la colonna: ~ \n");
-    for (int i = 0; i < rows; ++i) {
+    for (int i = 0; i < columns; ++i) {
         printf(" ~  ");
     }
     printf("\n");
@@ -164,11 +165,11 @@ void stampa_campo_da_gioco(char (*gameBoard)[columns]){
         printf("\n");
     }
     //stampo per numero di colonne
-    for (int i = 0; i < rows; ++i) {
+    for (int i = 0; i < columns; ++i) {
         printf(" ~  ");
     }
     printf("\n");
-    for (int i = 0; i < rows; ++i) {
+    for (int i = 0; i < columns; ++i) {
         printf(" %i  ",i+1);
     }
     printf("\n");
@@ -178,7 +179,14 @@ void stampa_campo_da_gioco(char (*gameBoard)[columns]){
 void inserisci_token(char (*gameBoard)[columns], char token_inserito){
     int mossa_cliente;
     //printf("io dovrei essere una scanf\n");
+    fflush(stdin);
     scanf("%d",&mossa_cliente);
+    while(mossa_cliente>columns){
+        printf("guarda non ho cosi tante colonne per te\n inserisci uno colonna non piu grande di %i", columns);
+        scanf("%d",&mossa_cliente);
+
+    }
+
     //TO-DO: devo fare il controllo che quello che inserisco sia giusto
     bool inserito = false;
     while(1){
@@ -195,12 +203,21 @@ void inserisci_token(char (*gameBoard)[columns], char token_inserito){
         }
 
         if(!inserito){
-
+            fflush(stdout);//pulisco il buffer (?)
+            fflush(stdin);
             printf("inserimento fallito, sciegliere un'altra colonna!\n ==>");
             printf("\n hai %i sec. per la mossa, altrimenti perdi per abbandono\n", secondi_per_mossa);
             alarm(0);//risetto l'allarme
             alarm(secondi_per_mossa);//risetto il timer
+            fflush(stdout);//pulisco il buffer (?)
+            fflush(stdin);
             scanf("%d",&mossa_cliente);
+            while(mossa_cliente>columns){
+                printf("guarda non ho cosi tante colonne per te\n inserisci uno colonna non piu grande di %i", columns);
+                scanf("%d",&mossa_cliente);
+
+            }
+           // scanf("%d",&mossa_cliente);
             //TO-DO: devo fare il controllo che quello che inserisco sia giusto
         }else{
             //alarm(0);//risetto l'allarme
@@ -235,6 +252,17 @@ int create_sem_set(key_t semkey) {
 }
 
 int main(int argc, char *argv[]) {
+
+    if(argc <2 || argc > 3){
+        printf("Usage: %s \n", argv[0]);
+        printf("eseguire il programma in questo modo: ./<eseguibile> <nome giocatore>\n oppure per giocare con un bot: ./<eseguibile> <nome giocatore> bot\n");
+        return 1;
+    }
+    if(argc == 3){
+        printf("client vuole giocare con il bot... \n funzione al momento non prevista...\n");
+        return 1;
+    }
+
 
     //chiave della memoria condivisa
     //key_t shmKey = 123;
@@ -290,7 +318,7 @@ int main(int argc, char *argv[]) {
     char (*gameBoard)[columns] = (char (*)[columns])sharedData->gameBoard;
     //per accedere:  gameBoard[i][j]
 
-
+    printf("column: %i \n rows: %i \n", columns,rows);
 
     //struct playersInfo (accedo allo spazio allocato dal server)
     key_t semkeyPlayers = ftok(".", 'c');
@@ -311,6 +339,7 @@ int main(int argc, char *argv[]) {
     printf("playersInfo->player_counter: %i\n", playersInfo->player_counter);
     if(im_client1){
         whoiam = 1;
+        strcpy(playersInfo->client1, argv[1]);
         playersInfo->pid_client1 = getpid();
         printf("in quanto client 1, ho pid %i\n",  getpid());
         //saro dentro client 1, faccio andare avanti il server
@@ -322,6 +351,7 @@ int main(int argc, char *argv[]) {
 
     if(im_client2){
         whoiam = 2;
+        strcpy(playersInfo->client2, argv[1]);
         playersInfo->pid_client2 = getpid();
         printf("in quanto client 2, ho pid %i\n",  getpid());
         //saro dentro client 2, faccio andare avabti il server
@@ -399,6 +429,10 @@ int main(int argc, char *argv[]) {
 
 
     //let's play
+
+    rows = sharedData->rows;
+    columns = sharedData->columns;
+
     char my_token;
     char my_name; //li mettero il suo nome scelto
     if(im_client2){
@@ -408,7 +442,7 @@ int main(int argc, char *argv[]) {
     }
     printf("\n===========Cominciamo=============\n");
 
-    for (int i = 0; i < 20; ++i) { //lo faccio girare solo per 20 volte, ma dovrebbe essere while(true)
+    while(1){ //lo faccio girare solo per 20 volte, ma dovrebbe essere while(true)
         if(im_client2){
             printf("in quanto client 2, mi blocco\n");
                 semOp(semid, just_play_client2, -1);//mi blocco affinche client 1 possa fare la sua mossa
@@ -420,6 +454,9 @@ int main(int argc, char *argv[]) {
         printf("~ scegli una colonna  ~ \n ==>");
 
         //move
+        fflush(stdout);//pulisco il buffer (?)
+        fflush(stdin);
+
         printf("\n hai %i sec. per la mossa, altrimenti perdi per abbandono\n", secondi_per_mossa);
         alarm(secondi_per_mossa);
         inserisci_token(gameBoard,my_token);

@@ -296,18 +296,18 @@ int main(int argc, char *argv[]) {
     // la size che andro ad allocare
     // allocate a shared memory segment
     printf("<Server> allocating a shared memory segment...\n");
-    shmidServer = alloc_shared_memory(shmKey, sizeof(rows*columns));
+    shmidServer = alloc_shared_memory(shmKey, sizeof(rows*columns)+sizeof (char));
     // attach the shared memory segment
     printf("<Server> attaching the shared memory segment...\n");
      sharedData  = (struct SharedData *)get_shared_memory(shmidServer, 0);
     sharedData->rows = rows;
     sharedData->columns = columns;
     //creo il campo di gioco
-    rows = sharedData->rows;
-    columns = sharedData->columns;
+    //rows = sharedData->rows;
+    //columns = sharedData->columns;
     char (*gameBoard)[columns] = (char (*)[columns])sharedData->gameBoard;
     //per accedere:  gameBoard[i][j]
-
+    printf("column: %i \n rows: %i \n", columns,rows);
 
     // create a semaphore set
     printf("<Server> creating a semaphore set...\n");
@@ -327,23 +327,25 @@ int main(int argc, char *argv[]) {
 
     //riempio le informazioni giusto per testare
     playersInfo->player_counter = 0;
-    strcpy(playersInfo->client1, "Monty");
-    strcpy(playersInfo->client2, "creatura magica");
+    //strcpy(playersInfo->client1, "Monty");
+    //strcpy(playersInfo->client2, "creatura magica");
     playersInfo->token1 = token_client1;
     playersInfo->token2 = token_client2;
-    playersInfo->colonna_ultima_mossa = 1;
+   // playersInfo->colonna_ultima_mossa = 1;
     playersInfo->pid_server = getpid();//metto il pid del server;
 
     //metto spazi vuoti nella matrice
     for (int i = 0; i < rows; ++i) {
         for (int j = 0; j < columns; ++j) {
-            if(j%2==0) {
                 gameBoard[i][j] = ' ';
-            }else{
-                gameBoard[i][j] = ' ';
-            }
         }
     }
+//    for (int i = 0; i < rows; ++i) {
+//        for (int j = 0; j < columns; ++j) {
+//            printf("%c", gameBoard[i][j]);
+//        }
+//        printf("\n");
+//    }
 
     /*===================inzio gestione segnali==========================*/
     /*
@@ -451,14 +453,14 @@ int main(int argc, char *argv[]) {
 
     printf("\n===========COMINCIAMO!===========\n");
 
-    for (int i = 0; i < 40; ++i) {
+    while(1){
 
         printf("mi blocco, affiche un client giochi\n");
         semOp(semid, sblocca_server, -1); //blocco il server, attendo che un client giochi
         //conterra -1(nessuno ha vinto), 1(vince client1), 2(vince client2), 3(vince client3)
         int valore_vincitore =  controlla_se_qualcuno_ha_vinto(gameBoard, playersInfo->colonna_ultima_mossa);
         if(valore_vincitore == 1){
-            printf("vince client 1, bravo!!\n");
+            printf("vince client 1: %s, bravo!!\n", playersInfo->client1);
             //chiudo i client
             //kill(pid_client1, SIGINT);
             //kill(pid_client2, SIGINT);
@@ -468,7 +470,7 @@ int main(int argc, char *argv[]) {
             break;
 
         }else if(valore_vincitore == 2){
-            printf("vince client 2, bravo!!\n");
+            printf("vince client 2: %s, bravo!!\n", playersInfo->client2);
             //chiudo i client
             //kill(pid_client1, SIGINT);
             //kill(pid_client2, SIGINT);
@@ -508,20 +510,20 @@ int main(int argc, char *argv[]) {
     //stampa_campo_da_gioco(gameBoard); l'ho spostato nel client
 
     //conterra -1(nessuno ha vinto), 1(vince client1), 2(vince client2), 3(vince client3)
-   int valore_vincitore =  controlla_se_qualcuno_ha_vinto(gameBoard, playersInfo->colonna_ultima_mossa);
-   if(valore_vincitore == 1){
-       printf("vince client 1, bravo!!\n");
-       //chiudo i client
-   }else if(valore_vincitore == 2){
-       printf("vince client 2, bravo!!\n");
-       //chiudo i client
-   }else if(valore_vincitore == 3){
-       printf("PAREGGIO, BRAVI ENTRAMBI\n");
-       //CHIUDO IL GIOCO
-   }else if(valore_vincitore == -1){
-       printf("nessuno ha vinto, CONTINUATE!\n");
-       //CONTINUO IL GIOCO
-   }
+//   int valore_vincitore =  controlla_se_qualcuno_ha_vinto(gameBoard, playersInfo->colonna_ultima_mossa);
+//   if(valore_vincitore == 1){
+//       printf("vince client 1, bravo!!\n");
+//       //chiudo i client
+//   }else if(valore_vincitore == 2){
+//       printf("vince client 2, bravo!!\n");
+//       //chiudo i client
+//   }else if(valore_vincitore == 3){
+//       printf("PAREGGIO, BRAVI ENTRAMBI\n");
+//       //CHIUDO IL GIOCO
+//   }else if(valore_vincitore == -1){
+//       printf("nessuno ha vinto, CONTINUATE!\n");
+//       //CONTINUO IL GIOCO
+//   }
 
 
 //    semOp(semid, attendi_client1, -1);
