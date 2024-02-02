@@ -207,7 +207,7 @@ int  controlla_se_qualcuno_ha_vinto(char (*gameBoard)[columns], int colonna_ulti
                 F4_ct_client1 = 0;
                 F4_ct_client2++;
             }
-            //controllo preventivo  x x x x o (per si che funzioni in questo caso)
+            //controllo preventivo  x x x x o (per far si che funzioni in questo caso)
             if(F4_ct_client1>=4){
                 return 1;
             }else if(F4_ct_client2>=4){
@@ -246,6 +246,97 @@ int  controlla_se_qualcuno_ha_vinto(char (*gameBoard)[columns], int colonna_ulti
     if(pareggio == true){
         return 3;
     }
+
+    //controllo in diagonale ma cosi / :
+
+    //cercor di capire in che riga si e' fermato il gettone
+
+    int row_where_insert = -1;
+    for (int i = rows-1; i >= 0; i--) {
+        if(gameBoard[i][colonna_ultima_mossa-1] == ' '){
+            //row_where_insert = i - 1;
+            row_where_insert = i+1; //(perche come faccio la ricerca nel gameBoard, e siccome trovo vuoto, allora vado al ultimo inserimento con +1
+            break;
+        }
+    }
+
+    /*
+     * se e' ancora 0, allora la colonna e' stata riempita con l'ultimo inserimento
+     * */
+    if(row_where_insert == -1){
+        row_where_insert = 0;
+    }
+    int original_row_where_insert = row_where_insert;
+    printf("row where insert: %i\n", row_where_insert);
+
+    int column_where_insert = colonna_ultima_mossa-1;
+
+    for (int i = 0; i < columns; ++i) {
+        if(column_where_insert== 0 || row_where_insert == rows-1){
+            break;
+        }
+        row_where_insert++;
+        column_where_insert--;
+    }
+    printf("partiro dalla richerca riga: %i, colonna: %i\n", row_where_insert,column_where_insert);
+
+    F4_ct_client1 = 0;
+    F4_ct_client2 = 0;
+    for (int i = 0; i < columns; ++i) {
+        if(gameBoard[row_where_insert][column_where_insert] == token_client1){
+            F4_ct_client1++;
+            F4_ct_client2 = 0;
+        }else if(gameBoard[row_where_insert][column_where_insert] == token_client2){
+            F4_ct_client2++;
+            F4_ct_client1 = 0;
+        }
+
+        if(F4_ct_client1>=4){
+            return 1;
+        }else if(F4_ct_client2>=4){
+            return 2;
+        }
+        row_where_insert--;
+        column_where_insert++;
+    }
+
+    //controllo diagonale ma cosi \
+
+    //rinizzializzo
+    row_where_insert =  original_row_where_insert;
+    column_where_insert = colonna_ultima_mossa-1;
+
+    for (int i = 0; i < columns; ++i) {
+        if(column_where_insert== columns-1 || row_where_insert == rows-1){
+            break;
+        }
+        row_where_insert++;
+        column_where_insert++;
+    }
+
+
+    F4_ct_client1 = 0;
+    F4_ct_client2 = 0;
+    for (int i = 0; i < columns; ++i) {
+        if(gameBoard[row_where_insert][column_where_insert] == token_client1){
+            F4_ct_client1++;
+            F4_ct_client2 = 0;
+        }else if(gameBoard[row_where_insert][column_where_insert] == token_client2){
+            F4_ct_client2++;
+            F4_ct_client1 = 0;
+        }
+
+        if(F4_ct_client1>=4){
+            return 1;
+        }else if(F4_ct_client2>=4){
+            return 2;
+        }
+        row_where_insert--;
+        column_where_insert--;
+    }
+
+
+
 
 
     //printf for debugging parpouse
