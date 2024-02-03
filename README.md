@@ -117,83 +117,29 @@ inserisci =>
 
 ```
 
-### logica del programma ~generale~:
+### Logica Generale del Programma::
 
 ```txt
-in pratica e' stato creato una struct nella
-memoria condivisa, nella quale tramite un 
-contatore si riesce a capire se sto eseguendo
-il codice con il client 1 oppure client 2.
-
-grazie a questo e' stato possibile anche la
-sincronizzazione dei semafori e segnali.
+Il programma utilizza una struct nella memoria condivisa per identificare quale client (client 1 o client 2) sta eseguendo il codice. Questo permette la sincronizzazione dei semafori e dei segnali.
 ```
 
 ### logica semafori:
 
 ```txt
-parte il server che si blocca, 
-aspettando che arrivi un client,
-appena arriva un client (che rinomino in c1) 
-comunica il server il suo arrivo.
-il server si blocca di nuovo aspettando 
-che si colleghi il client 2 (che rinomino in c2)
+Il server si blocca inizialmente, aspettando l'arrivo del primo client (rinominato c1). Quando c1 si connette, il server è notificato e attende il secondo client (rinominato c2). Dopo la connessione di c2, il server sblocca c1 e c2, inizia il gioco, e il flusso di controllo passa tra i due client. Il server controlla la vittoria e invia un segnale ai client per notificarli. Il ciclo di gioco continua indefinitamente.
 
-ora server sblocca c1 e c2 e si blocca
-c2 si blocca e avanza solo c1.
-e il gioco inzia, c1 fa la mossa e si blocca
-sbloccando c2 e il server (che controlla che
-se qualcuno ha vinto, in caso di vittoria di
-c1, c2  oppure pareggio manda un segnale 
-a c1 e c2, modificando anche una variabile 
-condivisa 
-dove viene indiacato il vincitore
-che fa la mossa e sblocca c1
-tutto questo dentro un ciclo infinto
 ```
 ### logica segnali
 
 ```txt
-appena il server iniza e arrivano c1 e c2
-salvo nella memoria condivisa i pid dei
-vari attori in gioco, nelle rispettive
-variabili (pid_server, pid_client1, pid_client2)
+Per il server, è prevista la gestione del segnale CTRL+C, che, se premuto due volte entro 5 secondi, termina il gioco notificando la chiusura ai client (c1 e c2), che a loro volta terminano.
 
-segnali per il server:
-- e' stato preveisto il CTRL+C, che dopo
-essere stato premuto per 2 volte di seguito
-entro 5 sec. termina il gioco, comunicando
-la chiusura a c1 e c2 (che a loro volta terminano)
-
-segnali per i client:
-e' stato previsto la chiusra immediata dopo
-aver premuto CRL+C, condirando come aver abbandonato la partita con la retiva sconfitta
-e tutto cio' viene comunicato al server
-che comunica anche al altro client la vittoria
-e poi chiude tutto
-
-per i client e' stato previsto anche un tempo 
-per mossa (per ora 20 sec.) superati i quali si
-perde per abbandono della partita 
-
-sia per client e server e' stato previsto la
-chiusra del terminale, in caso del server chiude anche c1 e c2 dicendo che il server supremo ha 
-chiuso tutto, per i client e' considerato come un
-abbandono della partita.
+Per i client, la pressione di CTRL+C equivale a un abbandono della partita e viene comunicato al server. È inoltre previsto un limite di tempo per ogni mossa (20 secondi), e se superato, il giocatore perde per abbandono della partita. La chiusura del terminale da parte del server comporta la chiusura dei client, comunicando un il server supremo ha chiuso la partita.
 ```
 
 ### logica del bot
 
 ```c
-e' il c1 che si collega che indica se vuole
-giocare con il bot, mettendo a true una variabile
-condivisa, poi il server fa una fork() 
-e nel figlio faccio un execl() eseguendo
-il codice del client, quindi giocando come se
-fosse c2, ma poiche' la variabile iambot=true
-invece di chiedere in input la colonna dove 
-inserire il gettone, scelgo una una colonna a 
-caso provo a inserire finche non riesco, per il
-resto il comportamento e' uguale a c2
+Quando il client 1 (c1) si collega e indica di voler giocare con il bot, viene impostata una variabile condivisa "iambot" a true. Successivamente, il server crea un processo figlio tramite fork() e nel figlio esegue execl() con il codice del client. Il bot, identificandosi come client 2 (c2), inserisce il gettone in una colonna casuale finché riesce. Il comportamento del bot è simile a c2, ma con laggiunta della scelta casuale della colonna in cui inserire il gettone.
 ```
 
