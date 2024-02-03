@@ -24,6 +24,7 @@ esempio:
 ```bash
  ./F4Server 7 6 x o
 
+
 output:
 
 
@@ -42,9 +43,11 @@ e' tutto pronto, attendo i client...
 
 ### utilizzo client:
 
-```bash
+
 per giocare con un'altro gicatore:
+```bash
 ./F4Client <nome>
+```
 
 esempio:
 ```bash
@@ -62,9 +65,6 @@ esempio:
 ASPETTIAMO che si colleghi il secondo giocatore...
 ```
 
-
-
-```
 avviare un'altro terminale:
 ```bash
 ./F4Client <nome2>
