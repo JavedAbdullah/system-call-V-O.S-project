@@ -52,6 +52,8 @@ int whoiam;
 bool iambot = false;
 int secondi_per_mossa = 20;//setto i secondi necessari affinche un client perdi
 
+
+void stampa_campo_da_gioco(char (*gameBoard)[columns]);
 /*
     SIG. HANDLERS
 */
@@ -82,6 +84,12 @@ void handlerSegnali(int sig){
     }
 
     if(sig == SIGUSR2){
+        if(!iambot){
+            //mi riprendo il campo da gioco :)
+            char (*gameBoard)[columns] = (char (*)[columns])sharedData->gameBoard;
+            stampa_campo_da_gioco(gameBoard);
+        }
+
         //faccio in controllo se sono il vincitore
         if(playersInfo->vincitore == 2 && playersInfo->abbandono == true){
             //client 2, vincitore
@@ -99,6 +107,7 @@ void handlerSegnali(int sig){
             exit(0);
         }
         if(playersInfo->vincitore == 1){
+            //stampa_campo_da_gioco();
             printf("\nHAI PERSO!!\n");
             exit(0);
         }
@@ -110,6 +119,13 @@ void handlerSegnali(int sig){
     }
 
     if(sig == SIGUSR1){
+        if(!iambot){
+            //mi riprendo il campo da gioco :)
+        char (*gameBoard)[columns] = (char (*)[columns])sharedData->gameBoard;
+        stampa_campo_da_gioco(gameBoard);
+        }
+
+
         //faccio in controllo se sono il vincitore
         if(playersInfo->vincitore == 1 && playersInfo->abbandono == true){
             //client 2, vincitore
@@ -154,6 +170,14 @@ void handlerSegnali(int sig){
 //stampa campo da gioco:
 void stampa_campo_da_gioco(char (*gameBoard)[columns]){
     system("clear");
+    printf("\n* * * * * * * * * * * * * * * * * * * * * * *\n");
+    printf("*             WELCOME TO                    *\n");
+    printf("*             FORZA 4 GAME                   *\n");
+    printf("*                                           *\n");
+    printf("*             made by Javed A.              *\n");
+    printf("* * * * * * * * * * * * * * * * * * * * * * *\n");
+
+
     printf("~ sciegli la colonna: ~ \n");
     for (int i = 0; i < columns; ++i) {
         printf(" ~  ");
@@ -185,15 +209,17 @@ void inserisci_token(char (*gameBoard)[columns], char token_inserito){
         mossa_cliente = rand()%columns+1;
     }else{
         fflush(stdin);
+        printf("inserisci => ");
         scanf("%d",&mossa_cliente);
     }
 
     while(mossa_cliente>columns){
-        printf("guarda non ho cosi tante colonne per te\n inserisci uno colonna non piu grande di %i", columns);
+        printf("guarda non ho cosi tante colonne per te\n inserisci uno colonna non piu grande di %i\n", columns);
         if(iambot == true){
             mossa_cliente = rand()%columns+1;
         }else{
             fflush(stdin);
+            printf("inserisci => ");
             scanf("%d",&mossa_cliente);
         }
     }
@@ -216,7 +242,7 @@ void inserisci_token(char (*gameBoard)[columns], char token_inserito){
         if(!inserito){
             fflush(stdout);//pulisco il buffer (?)
             fflush(stdin);
-            printf("inserimento fallito, sciegliere un'altra colonna!\n ==>");
+            printf("inserimento fallito, sciegliere un'altra colonna!\n");
             printf("\n hai %i sec. per la mossa, altrimenti perdi per abbandono\n", secondi_per_mossa);
             alarm(0);//risetto l'allarme
             alarm(secondi_per_mossa);//risetto il timer
@@ -228,7 +254,8 @@ void inserisci_token(char (*gameBoard)[columns], char token_inserito){
             }else{
                 scanf("%d",&mossa_cliente);
                 while(mossa_cliente>columns){
-                    printf("guarda non ho cosi tante colonne per te\n inserisci uno colonna non piu grande di %i", columns);
+                    printf("guarda non ho cosi tante colonne per te\n inserisci uno colonna non piu grande di %i\n", columns);
+                    printf("inserisci => ");
                     scanf("%d",&mossa_cliente);
 
                 }
@@ -278,8 +305,13 @@ int main(int argc, char *argv[]) {
         printf("eseguire il programma in questo modo: ./<eseguibile> <nome giocatore>\n oppure per giocare con un bot: ./<eseguibile> <nome giocatore> bot\n");
         return 1;
     }
-
-
+    system("clear");
+    printf("\n* * * * * * * * * * * * * * * * * * * * * * *\n");
+    printf("*             WELCOME TO                    *\n");
+    printf("*             FORZA 4 GAME                   *\n");
+    printf("*                                           *\n");
+    printf("*             made by Javed A.              *\n");
+    printf("* * * * * * * * * * * * * * * * * * * * * * *\n");
 
     //chiave della memoria condivisa
     //key_t shmKey = 123;
@@ -335,7 +367,7 @@ int main(int argc, char *argv[]) {
     char (*gameBoard)[columns] = (char (*)[columns])sharedData->gameBoard;
     //per accedere:  gameBoard[i][j]
 
-    printf("column: %i \n rows: %i \n", columns,rows);
+    //printf("column: %i \n rows: %i \n", columns,rows);
 
     //struct playersInfo (accedo allo spazio allocato dal server)
     key_t semkeyPlayers = ftok(".", 'c');
@@ -367,36 +399,38 @@ int main(int argc, char *argv[]) {
         im_client1 =  true;
     }
     playersInfo->player_counter++;
-    printf("playersInfo->player_counter: %i\n", playersInfo->player_counter);
+    //printf("playersInfo->player_counter: %i\n", playersInfo->player_counter);
     if(im_client1){
         whoiam = 1;
         strcpy(playersInfo->client1, argv[1]);
         playersInfo->pid_client1 = getpid();
-        printf("in quanto client 1, ho pid %i\n",  getpid());
+       // printf("in quanto client 1, ho pid %i\n",  getpid());
         //saro dentro client 1, faccio andare avanti il server
-        printf("mi collego da client 1\n");
+        //printf("mi collego da client 1\n");
         semOp(semid, attendi_client1, 1);
-        printf("attendo che il server mi dica che e' arrivato il client 2\n");
+        //printf("attendo che il server mi dica che e' arrivato il client 2\n");
+        printf("ASPETTIAMO che si colleghi il secondo giocatore...\n");
         semOp(semid, attendi_client1, -1);
     }
 
     if(im_client2){
         if(playersInfo->bot == true){
             iambot = true;
+            //setbuf(stdout, NULL);//tolgo i printf del bot (?)
         }
         whoiam = 2;
         strcpy(playersInfo->client2, argv[1]);
         playersInfo->pid_client2 = getpid();
-        printf("in quanto client 2, ho pid %i\n",  getpid());
+       // printf("in quanto client 2, ho pid %i\n",  getpid());
         //saro dentro client 2, faccio andare avabti il server
-        printf("mi collego da client 2\n");
+        //printf("mi collego da client 2\n");
         semOp(semid, attendi_client2, 1);
         //semOp(semid, attendi_client2, -1);//mi blocco in attesa di ordini
     }
 
-    printf("server, ha pid %i\n", playersInfo->pid_server);
-    printf("client 1, ha pid %i\n",  playersInfo->pid_client1);
-    printf("client 2, ha pid %i\n",  playersInfo->pid_client2);
+   // printf("server, ha pid %i\n", playersInfo->pid_server);
+    //printf("client 1, ha pid %i\n",  playersInfo->pid_client1);
+    //printf("client 2, ha pid %i\n",  playersInfo->pid_client2);
 
 
 
@@ -478,14 +512,15 @@ int main(int argc, char *argv[]) {
 
     while(1){ //lo faccio girare solo per 20 volte, ma dovrebbe essere while(true)
         if(im_client2){
-            printf("in quanto client 2, mi blocco\n");
+            //printf("in quanto client 2, mi blocco\n");
+            printf("ATTENDI! sta facendo la mossa il tuo avversario, %s ....\n", playersInfo->client1);
                 semOp(semid, just_play_client2, -1);//mi blocco affinche client 1 possa fare la sua mossa
 
         }
         //stampo il campo di gioco
         stampa_campo_da_gioco(gameBoard);
         printf("il tuo TOKEN: ~ %c ~ \n",my_token);
-        printf("~ scegli una colonna  ~ \n ==>");
+        printf("~ scegli una colonna  ~ \n");
 
         //move
         fflush(stdout);//pulisco il buffer (?)
@@ -496,18 +531,19 @@ int main(int argc, char *argv[]) {
         inserisci_token(gameBoard,my_token);
         alarm(0);//risetto l'allarme
 
-        printf("prima del blocco del server\n");
+        //printf("prima del blocco del server\n");
         //prima di continuare, comunico al server che ho fatto la mossa
         semOp(semid, sblocca_server, 1);//sbolocco il server, affinche possa fare i controlli
         semOp(semid, controlla_partita_server, -1);//mi blocco affinche il server possa controllare
-        printf("DOPO IL  blocco del server\n");
+        //printf("DOPO IL  blocco del server\n");
         if(im_client2){
-            printf("entro qui per sbloccare il client1\n");
+            //printf("entro qui per sbloccare il client1\n");
             semOp(semid, just_play_client1, 1); //sblocco il client 1
         }else if(im_client1){
-            printf("entro qui per sbloccare il client2, e bloccarmi in quanto client 1\n");
+            //printf("entro qui per sbloccare il client2, e bloccarmi in quanto client 1\n");
+            printf("ATTENDI! sta facendo la mossa il tuo avversario, %s ....\n", playersInfo->client2);
             semOp(semid, just_play_client2, 1); //sblocco client 2
-            printf("ho gia sbloccato il client 2\n");
+            //printf("ho gia sbloccato il client 2\n");
             semOp(semid, just_play_client1, -1);//blocco il client 1
         }
 

@@ -93,11 +93,14 @@ void handlerSegnali(int sig){
 
 
    else if(sig == SIGINT){
-        printf("entror nel sigINIT\n");
+        //printf("entror nel sigINIT\n");
+
+
+
         contatoreCtrlC++;
 
         if(contatoreCtrlC == 2){
-            printf("entro nel contatore\n");
+            //printf("entro nel contatore\n");
             alarm(0);
             printf("<server> Gioco interrotto dal CTRL+C\n");
             //comunico ai client che chiudo tutto
@@ -108,6 +111,7 @@ void handlerSegnali(int sig){
             elimina_tutto();
             exit(0);
         }
+        printf("\n premere ancora CTRL+C entro %i sec. per interrompere il gioco!\n", secondiCtrlC);
         alarm(secondiCtrlC);
     }
     else if(sig == SIGALRM){
@@ -123,7 +127,7 @@ void handlerSegnali(int sig){
 
 
    else  if(sig == SIGUSR1){
-        printf("<server> oh no, client 1 abbandona \n");
+        printf("<server> oh no, client 1: %s abbandona \n", playersInfo->client1);
         playersInfo->abbandono = true;
         kill(playersInfo->pid_client2, SIGUSR2);
         playersInfo->vincitore = 2;
@@ -131,7 +135,7 @@ void handlerSegnali(int sig){
         exit(0);
     }
     else if(sig == SIGUSR2){
-        printf("<server> oh no, client 2 abbandona \n");
+        printf("<server> oh no, client 2: %s abbandona \n", playersInfo->client2);
         playersInfo->abbandono = true;
         kill(playersInfo->pid_client1, SIGUSR1);
         playersInfo->vincitore = 1;
@@ -175,7 +179,7 @@ int  controlla_se_qualcuno_ha_vinto(char (*gameBoard)[columns], int colonna_ulti
     int F4_ct_client1 = 0; //contatore per client1
     int F4_ct_client2 = 0; //contatore per client2
     for (int i = rows-1; i>= 0; --i) {
-        printf("sto controllando la poszione %i nella colonna %i \n", i, colonna_ultima_mossa-1);
+       // printf("sto controllando la poszione %i nella colonna %i \n", i, colonna_ultima_mossa-1);
         if(gameBoard[i][colonna_ultima_mossa-1] == token_client1){
             F4_ct_client1++;
             F4_ct_client2 = 0;
@@ -196,7 +200,7 @@ int  controlla_se_qualcuno_ha_vinto(char (*gameBoard)[columns], int colonna_ulti
 
 
     //controllo sulla riga se qualcuno ha vinto
-    printf("controllo sulle righe: \n");
+    //printf("controllo sulle righe: \n");
     for (int i = 0; i < rows; ++i) {
         for (int j = 0; j < columns; ++j) {
             printf("%c ",gameBoard[i][j]);
@@ -206,6 +210,9 @@ int  controlla_se_qualcuno_ha_vinto(char (*gameBoard)[columns], int colonna_ulti
             }else if(gameBoard[i][j] == token_client2){
                 F4_ct_client1 = 0;
                 F4_ct_client2++;
+            }else{
+                F4_ct_client1 = 0; //contatore per client1
+                F4_ct_client2 = 0; //contatore per client2
             }
             //controllo preventivo  x x x x o (per far si che funzioni in questo caso)
             if(F4_ct_client1>=4){
@@ -267,7 +274,7 @@ int  controlla_se_qualcuno_ha_vinto(char (*gameBoard)[columns], int colonna_ulti
         row_where_insert = 0;
     }
     int original_row_where_insert = row_where_insert;
-    printf("row where insert: %i\n", row_where_insert);
+   // printf("row where insert: %i\n", row_where_insert);
 
     int column_where_insert = colonna_ultima_mossa-1;
 
@@ -278,7 +285,7 @@ int  controlla_se_qualcuno_ha_vinto(char (*gameBoard)[columns], int colonna_ulti
         row_where_insert++;
         column_where_insert--;
     }
-    printf("partiro dalla richerca riga: %i, colonna: %i\n", row_where_insert,column_where_insert);
+    //printf("partiro dalla richerca riga: %i, colonna: %i\n", row_where_insert,column_where_insert);
 
     F4_ct_client1 = 0;
     F4_ct_client2 = 0;
@@ -289,6 +296,9 @@ int  controlla_se_qualcuno_ha_vinto(char (*gameBoard)[columns], int colonna_ulti
         }else if(gameBoard[row_where_insert][column_where_insert] == token_client2){
             F4_ct_client2++;
             F4_ct_client1 = 0;
+        }else{
+            F4_ct_client1 = 0; //contatore per client1
+            F4_ct_client2 = 0; //contatore per client2
         }
 
         if(F4_ct_client1>=4){
@@ -324,6 +334,9 @@ int  controlla_se_qualcuno_ha_vinto(char (*gameBoard)[columns], int colonna_ulti
         }else if(gameBoard[row_where_insert][column_where_insert] == token_client2){
             F4_ct_client2++;
             F4_ct_client1 = 0;
+        }else{
+            F4_ct_client1 = 0; //contatore per client1
+            F4_ct_client2 = 0; //contatore per client2
         }
 
         if(F4_ct_client1>=4){
@@ -359,9 +372,34 @@ int main(int argc, char *argv[]) {
         printf("le righe e colonne DEVONO essere >=5\n");
         return 1;
     }
+
+    /*
+     *
+     * stampo benvenuto al gioco
+     *
+     * */
+
+    /* * * * * * * * * * * * * * * * * * * * * */
+    /*             WELCOME TO                  *
+     *             FORZA4 GAME                 *
+     *                                         *
+     *                                         *
+     *            made by Javed A.             *
+     *  * * * * * * * * * * * * * * * * * * * */
+
+    system("clear");
+    printf("\n* * * * * * * * * * * * * * * * * * * * * * *\n");
+    printf("*             WELCOME TO                    *\n");
+    printf("*             FORZA 4 GAME                   *\n");
+    printf("*                                           *\n");
+    printf("*             made by Javed A.              *\n");
+    printf("* * * * * * * * * * * * * * * * * * * * * * *\n");
+
+
+
    // strcpy(token_client1, argv[3]);
     token_client1 = argv[3][0];
-    printf("token 1 %c: \n", token_client1);
+    //printf("token 1 %c: \n", token_client1);
    token_client2 = argv[4][0];
 
 
@@ -398,7 +436,7 @@ int main(int argc, char *argv[]) {
     //columns = sharedData->columns;
     char (*gameBoard)[columns] = (char (*)[columns])sharedData->gameBoard;
     //per accedere:  gameBoard[i][j]
-    printf("column: %i \n rows: %i \n", columns,rows);
+    //printf("column: %i \n rows: %i \n", columns,rows);
 
     // create a semaphore set
     printf("<Server> creating a semaphore set...\n");
